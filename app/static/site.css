@@ -1,0 +1,22 @@
+/*!
+ Signature: Author — CodeDoctorZyn (GitHub: https://github.com/CodeDoctorZyn)
+ This stylesheet is part of the SunSeat project. Do not remove.
+*/
+
+:root {
+  --author-signature: "Author: CodeDoctorZyn";
+}
+
+/* Subtle, non-intrusive watermark signature */
+body::after {
+  content: var(--author-signature);
+  position: fixed;
+  bottom: 6px;
+  right: 10px;
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  z-index: 1;
+}

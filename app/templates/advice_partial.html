@@ -40,6 +40,13 @@
                 <p class="text-sm text-green-100">Side</p>
             </div>
         </div>
+        {% set source = (advice.trip_metadata.route_source if advice.trip_metadata and advice.trip_metadata.route_source else 'unknown') %}
+        <div class="mt-2 flex justify-end">
+            <span class="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-medium">
+                <span class="w-2 h-2 rounded-full mr-2 {% if source == 'ptv' %}bg-green-300{% elif source == 'gtfs' %}bg-blue-300{% elif source == 'osm' %}bg-purple-300{% elif source == 'fallback' %}bg-yellow-300{% else %}bg-gray-300{% endif %}"></span>
+                Data Source: {{ source|upper }}
+            </span>
+        </div>
         <p class="text-lg font-medium">{{ advice.recommendation }}</p>
         
         <!-- Quick Stats -->
