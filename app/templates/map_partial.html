@@ -1,0 +1,179 @@
+{% if error %}
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div class="flex items-center">
+            <svg class="w-5 h-5 text-yellow-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
+            </svg>
+            <div>
+                <h4 class="text-yellow-800 font-medium">Map Unavailable</h4>
+                <p class="text-yellow-700 text-sm">{{ error }}</p>
+            </div>
+        </div>
+    </div>
+{% else %}
+<div class="bg-white rounded-lg shadow-md overflow-hidden">
+    <!-- Map Header -->
+    <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+        <h3 class="text-lg font-medium text-gray-800">🗺️ Route Visualization</h3>
+        <p class="text-sm text-gray-600 mt-1">
+            Route segments are color-coded by sun exposure side
+        </p>
+    </div>
+    
+    <!-- Map Container -->
+    <div id="leaflet-map" class="map-container"></div>
+    
+    <!-- Map Legend -->
+    <div class="px-4 py-3 bg-gray-50 border-t border-gray-200">
+        <h4 class="text-sm font-medium text-gray-700 mb-2">Map Legend</h4>
+        <div class="flex flex-wrap gap-4 text-xs">
+            <div class="flex items-center">
+                <div class="w-3 h-3 bg-blue-500 rounded mr-2"></div>
+                <span class="text-gray-600">Left Side Sun</span>
+            </div>
+            <div class="flex items-center">
+                <div class="w-3 h-3 bg-orange-500 rounded mr-2"></div>
+                <span class="text-gray-600">Right Side Sun</span>
+            </div>
+            <div class="flex items-center">
+                <div class="w-3 h-3 bg-gray-500 rounded mr-2"></div>
+                <span class="text-gray-600">No Sun / Low Impact</span>
+            </div>
+            <div class="flex items-center">
+                <div class="w-3 h-3 border-2 border-green-500 rounded-full mr-2"></div>
+                <span class="text-gray-600">Stations</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Initialize Leaflet map
+    (function() {
+        // Remove existing map if it exists
+        const existingMap = window.sundirectMap;
+        if (existingMap) {
+            existingMap.remove();
+        }
+        
+        // Map data from server
+    const coordinates = {{ (coordinates | default([])) | tojson }};
+    const segments = {{ (segments | default([])) | tojson }};
+    const centerLat = {{ center_lat | default(-37.8136) }};
+    const centerLon = {{ center_lon | default(144.9631) }};
+        
+        if (!coordinates || coordinates.length === 0) {
+            document.getElementById('leaflet-map').innerHTML = 
+                '<div class="flex items-center justify-center h-full text-gray-500">' +
+                '<div class="text-center">' +
+                '<svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m0 0L9 7"></path>' +
+                '</svg>' +
+                '<p>No route data available</p>' +
+                '</div>' +
+                '</div>';
+            return;
+        }
+        
+        // Create map
+        const map = L.map('leaflet-map').setView([centerLat, centerLon], 12);
+        window.sundirectMap = map;
+        
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Add route polyline
+        if (coordinates && coordinates.length > 1) {
+            const polyline = L.polyline(coordinates, {
+                color: '#374151',
+                weight: 4,
+                opacity: 0.3
+            }).addTo(map);
+            
+            // Fit map to route bounds
+            map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+        }
+        
+        // Add colored segments
+        if (segments && segments.length > 0) {
+            segments.forEach(function(segment) {
+                let color = '#6b7280'; // gray (NEITHER)
+                let weight = 3;
+                let opacity = 0.7;
+                
+                if (segment.advice === 'LEFT') {
+                    color = '#3b82f6'; // blue
+                    weight = 5;
+                    opacity = 0.9;
+                } else if (segment.advice === 'RIGHT') {
+                    color = '#f97316'; // orange
+                    weight = 5;
+                    opacity = 0.9;
+                }
+                
+                const segmentLine = L.polyline([
+                    [segment.start_lat, segment.start_lon],
+                    [segment.end_lat, segment.end_lon]
+                ], {
+                    color: color,
+                    weight: weight,
+                    opacity: opacity
+                }).addTo(map);
+                
+                // Add popup with segment info
+                const popup = `
+                    <div class="text-sm">
+                        <div class="font-medium mb-1">Segment Info</div>
+                        <div><strong>Sun Side:</strong> ${segment.advice}</div>
+                        <div><strong>Color:</strong> <span style="color: ${color}">●</span> ${segment.advice === 'LEFT' ? 'Blue' : segment.advice === 'RIGHT' ? 'Orange' : 'Gray'}</div>
+                    </div>
+                `;
+                segmentLine.bindPopup(popup);
+            });
+        }
+        
+        // Add station markers
+        if (coordinates && coordinates.length > 0) {
+            // Start station (green)
+            L.circleMarker([coordinates[0][0], coordinates[0][1]], {
+                radius: 6,
+                fillColor: '#10b981',
+                color: '#059669',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map).bindPopup('<div class="text-sm font-medium">Start Station</div>');
+            
+            // End station (red)
+            if (coordinates.length > 1) {
+                const lastCoord = coordinates[coordinates.length - 1];
+                L.circleMarker([lastCoord[0], lastCoord[1]], {
+                    radius: 6,
+                    fillColor: '#ef4444',
+                    color: '#dc2626',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map).bindPopup('<div class="text-sm font-medium">End Station</div>');
+            }
+            
+            // Intermediate stations (smaller markers)
+            for (let i = 1; i < coordinates.length - 1; i++) {
+                L.circleMarker([coordinates[i][0], coordinates[i][1]], {
+                    radius: 3,
+                    fillColor: '#6b7280',
+                    color: '#4b5563',
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.6
+                }).addTo(map);
+            }
+        }
+        
+        // Add attribution
+        map.attributionControl.addAttribution('Route data: GTFS');
+    })();
+</script>
+{% endif %}

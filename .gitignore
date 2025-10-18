@@ -1,0 +1,39 @@
+# OS
+.DS_Store
+.Trashes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.env
+.env.*
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Editors/IDE
+.vscode/
+.idea/
+
+# Caches
+.cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Local data (keep README only)
+/data/gtfs_sample/*
+!/data/gtfs_sample/README.md
+
+# Docker
+*.pid

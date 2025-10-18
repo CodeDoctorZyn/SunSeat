@@ -1,0 +1,181 @@
+# SunSeat - Docker Compose for Development and Production
+version: '3.8'
+
+services:
+  # Main FastAPI Application
+  sunseat-app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: sunseat-app
+    ports:
+      - "8000:8000"
+    environment:
+      # Application Configuration
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - TIMEZONE=Australia/Melbourne
+      - WORKERS=2
+      
+      # API Keys (use Docker secrets or .env file for production)
+      - PTV_USER_ID=${PTV_USER_ID:-your_ptv_user_id}
+      - PTV_API_KEY=${PTV_API_KEY:-your_ptv_api_key}
+      - SOLCAST_API_KEY=${SOLCAST_API_KEY:-your_solcast_api_key}
+      
+      # Database Configuration
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///app/data/sunseat.db}
+      
+      # Cache Configuration
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - CACHE_TTL=300
+      
+      # GTFS Configuration
+      - GTFS_DIR=/app/data/gtfs_cache
+      - GTFS_AUTO_UPDATE=true
+      - GTFS_UPDATE_INTERVAL=3600
+      
+      # Logging
+      - LOG_LEVEL=INFO
+      - LOG_FILE=/app/logs/sunseat.log
+    
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - gtfs_cache:/app/data/gtfs_cache
+    
+    depends_on:
+      - redis
+    
+    networks:
+      - sunseat-network
+    
+    restart: unless-stopped
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis Cache Service
+  redis:
+    image: redis:7-alpine
+    container_name: sunseat-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - sunseat-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Optional: PostgreSQL for production (replace SQLite)
+  postgres:
+    image: postgres:15-alpine
+    container_name: sunseat-postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-sunseat}
+      - POSTGRES_USER=${POSTGRES_USER:-sunseat}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-sunseat_secure_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data/postgres_init:/docker-entrypoint-initdb.d
+    networks:
+      - sunseat-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sunseat}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - production
+
+  # Optional: Nginx reverse proxy for production
+  nginx:
+    image: nginx:alpine
+    container_name: sunseat-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/ssl:/etc/nginx/ssl:ro
+      - ./app/static:/var/www/static:ro
+    depends_on:
+      - sunseat-app
+    networks:
+      - sunseat-network
+    restart: unless-stopped
+    profiles:
+      - production
+
+  # Optional: Prometheus monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sunseat-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    networks:
+      - sunseat-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  # Optional: Grafana dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sunseat-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - sunseat-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+# Named volumes for data persistence
+volumes:
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local
+  gtfs_cache:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# Network configuration
+networks:
+  sunseat-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

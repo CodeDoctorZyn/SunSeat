@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+    <!-- Form Column -->
+    <div class="xl:col-span-2">
+        <div class="bg-white rounded-2xl shadow-xl p-8">
+            <div class="flex items-center mb-6">
+                <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-full p-3 mr-4">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m0 0L9 7"></path>
+                    </svg>
+                </div>
+                <h2 class="text-3xl font-bold text-gray-800">Plan Your Journey</h2>
+            </div>
+            
+            <form hx-post="/advice" 
+                  hx-target="#results-area" 
+                  hx-trigger="submit"
+                  hx-indicator="#loading"
+                  class="space-y-6">
+                
+                <!-- Route Selection -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Origin Station -->
+                    <div>
+                        <label for="origin_station" class="block text-sm font-semibold text-gray-700 mb-2">
+                            📍 From Station
+                        </label>
+                        <input type="text" 
+                               id="origin_station" 
+                               name="origin_station"
+                               placeholder="e.g., Melbourne Central, Flinders Street"
+                               required
+                               list="origin_list"
+                               hx-get="/stops/options"
+                               hx-trigger="keyup changed delay:200ms"
+                               hx-params="q=this.value"
+                               hx-target="#origin_list"
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                        <datalist id="origin_list"></datalist>
+                    </div>
+                    
+                    <!-- Destination Station -->
+                    <div>
+                        <label for="destination_station" class="block text-sm font-semibold text-gray-700 mb-2">
+                            🎯 To Station
+                        </label>
+                        <input type="text" 
+                               id="destination_station" 
+                               name="destination_station"
+                               placeholder="e.g., Richmond, South Yarra"
+                               required
+                               list="destination_list"
+                               hx-get="/stops/options"
+                               hx-trigger="keyup changed delay:200ms"
+                               hx-params="q=this.value"
+                               hx-target="#destination_list"
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                        <datalist id="destination_list"></datalist>
+                    </div>
+                </div>
+                
+                <!-- Line/Service -->
+                <div>
+                    <label for="line" class="block text-sm font-semibold text-gray-700 mb-2">
+                        🚊 Line/Service
+                    </label>
+                    <select id="line" 
+                            name="line"
+                            required
+                            hx-get="/routes/options?transport_type=train"
+                            hx-trigger="load from:body"
+                            hx-target="#line-options"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                        <option value="">Select transport line...</option>
+                        <optgroup id="line-options" label="🚆 Metropolitan Trains">
+                            <!-- Options will load here via HTMX -->
+                        </optgroup>
+                    </select>
+                </div>
+                
+                <!-- Date and Time -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="departure_date" class="block text-sm font-semibold text-gray-700 mb-2">
+                            📅 Date
+                        </label>
+                        <input type="date" 
+                               id="departure_date" 
+                               name="departure_date"
+                               value="{{ default_date }}"
+                               required
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                    </div>
+                    
+                    <div>
+                        <label for="departure_time" class="block text-sm font-semibold text-gray-700 mb-2">
+                            ⏰ Time
+                        </label>
+                        <input type="time" 
+                               id="departure_time" 
+                               name="departure_time"
+                               value="{{ default_time }}"
+                               required
+                               class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                    </div>
+                </div>
+                
+                <!-- Carriage Facing -->
+                <div>
+                    <label for="facing" class="block text-sm font-semibold text-gray-700 mb-2">
+                        🧭 My seat faces
+                    </label>
+                    <select id="facing" 
+                            name="facing"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+                        <option value="unknown">🤷 Don't know / Default</option>
+                        <option value="forward">⬆️ Forward (direction of travel)</option>
+                        <option value="backward">⬇️ Backward (opposite to travel)</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-2">
+                        💡 This affects left/right recommendations. Most seats face forward.
+                    </p>
+                </div>
+                
+                <!-- Submit Button -->
+                <!-- Submit Button -->
+                <div class="flex space-x-4">
+                    <button type="submit" 
+                            class="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-xl hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition duration-300 font-semibold text-lg shadow-lg transform hover:scale-105">
+                        <span class="flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                            </svg>
+                            Get Sun Advice
+                        </span>
+                    </button>
+                    
+                    <button type="button" 
+                            onclick="document.querySelector('form').reset()"
+                            class="px-6 py-4 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-4 focus:ring-gray-200 transition duration-300 font-medium">
+                        Clear
+                    </button>
+                </div>
+                
+                <!-- Loading indicator -->
+                <div id="loading" class="loading text-center py-4">
+                    <div class="inline-flex items-center px-4 py-2 font-semibold leading-6 text-sm shadow rounded-md text-blue-600 bg-blue-100">
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Analyzing sun exposure...
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Quick Tips -->
+        <div class="mt-8 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-6 border border-yellow-200">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                💡 Quick Tips
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div class="flex items-start space-x-2">
+                    <span class="text-lg">🌅</span>
+                    <div>
+                        <p class="font-medium text-gray-700">Morning Commute</p>
+                        <p class="text-gray-600">Generally sit on the east-facing side to catch morning sun</p>
+                    </div>
+                </div>
+                <div class="flex items-start space-x-2">
+                    <span class="text-lg">🌇</span>
+                    <div>
+                        <p class="font-medium text-gray-700">Evening Return</p>
+                        <p class="text-gray-600">West-facing sides get afternoon and evening sun</p>
+                    </div>
+                </div>
+                <div class="flex items-start space-x-2">
+                    <span class="text-lg">🌫️</span>
+                    <div>
+                        <p class="font-medium text-gray-700">City Loop</p>
+                        <p class="text-gray-600">Underground segments have no sun exposure</p>
+                    </div>
+                </div>
+                <div class="flex items-start space-x-2">
+                    <span class="text-lg">🏢</span>
+                    <div>
+                        <p class="font-medium text-gray-700">Urban Areas</p>
+                        <p class="text-gray-600">Buildings can create shadows and block sun</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Results/Info Column -->
+    <div class="space-y-6">
+        <!-- Results Area -->
+        <div id="results-area">
+            <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-8 text-center border-2 border-dashed border-gray-300">
+                <div class="mb-4">
+        </form>
+        
+        <!-- Quick Tips -->
+        <div class="mt-6 p-4 bg-blue-50 rounded-md">
+            <h3 class="text-sm font-medium text-blue-800 mb-2">💡 Quick Tips</h3>
+            <ul class="text-xs text-blue-700 space-y-1">
+                <li>• Best results during daylight hours (6 AM - 6 PM)</li>
+                <li>• Recommendations assume clear weather conditions</li>
+                <li>• Consider window seat for optimal sun avoidance</li>
+                <li>• Underground/tunnel sections marked as "Neither"</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Results Column -->
+    <div class="space-y-6">
+        <div id="results-area">
+            <div class="bg-white rounded-lg shadow-md p-6 text-center text-gray-500">
+                <div class="mb-4">
+                    <svg class="w-16 h-16 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-800 mb-2">Ready for your journey?</h3>
+                <p>Fill out the form to get personalized sun exposure advice for your train trip.</p>
+            </div>
+        </div>
+        
+        <!-- Map Container (will be populated by HTMX) -->
+        <div id="map-container">
+            <!-- Map will be loaded here via HTMX -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-load map after advice is loaded, passing exact route
+    document.addEventListener('htmx:afterSettle', function(event) {
+        if (event.detail && event.detail.target && event.detail.target.id === 'results-area') {
+            const el = document.getElementById('route-json');
+            let params = '';
+            if (el) {
+                try {
+                    const payload = JSON.parse(el.textContent || '{}');
+                    params = '?route_data=' + encodeURIComponent(JSON.stringify(payload.coordinates || []));
+                } catch(e) { params = ''; }
+            }
+            htmx.ajax('GET', '/map' + params, '#map-container');
+        }
+    });
+    
+    // Add some UX improvements
+    document.addEventListener('DOMContentLoaded', function() {
+        // Focus first input
+        document.getElementById('origin_station').focus();
+        
+        // Add enter key handling for better UX
+        document.querySelectorAll('input[type="text"]').forEach(input => {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const form = this.closest('form');
+                    if (form) form.requestSubmit();
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

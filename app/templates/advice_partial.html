@@ -1,0 +1,287 @@
+{% if error %}
+<div class="bg-red-50 border border-red-200 rounded-2xl p-6">
+    <div class="flex items-center mb-3">
+        <div class="bg-red-100 rounded-full p-2 mr-3">
+            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-red-800">Unable to Generate Advice</h3>
+    </div>
+    <p class="text-red-700">{{ error }}</p>
+    <div class="mt-4 text-sm text-red-600">
+        <p>Please check your input and try again. Make sure:</p>
+        <ul class="list-disc list-inside mt-2 space-y-1">
+            <li>Station names are spelled correctly</li>
+            <li>Date is not in the past</li>
+            <li>Origin and destination are different</li>
+        </ul>
+    </div>
+</div>
+{% elif advice %}
+<div class="space-y-6">
+    <!-- Main Recommendation Card -->
+    <div class="bg-gradient-to-r from-green-500 to-blue-600 rounded-2xl p-6 text-white shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-2xl font-bold">🎯 Recommendation</h3>
+                <p class="text-green-100 text-sm">Based on solar analysis</p>
+            </div>
+            <div class="text-right">
+                <div class="text-3xl font-bold">
+                    {% if advice.left_percentage > advice.right_percentage %}
+                        ☀️ LEFT
+                    {% elif advice.right_percentage > advice.left_percentage %}
+                        ☀️ RIGHT
+                    {% else %}
+                        🤷 EITHER
+                    {% endif %}
+                </div>
+                <p class="text-sm text-green-100">Side</p>
+            </div>
+        </div>
+        <p class="text-lg font-medium">{{ advice.recommendation }}</p>
+        
+        <!-- Quick Stats -->
+        <div class="mt-4 grid grid-cols-3 gap-4 text-center">
+            <div class="bg-white/20 rounded-lg p-3">
+                <p class="text-2xl font-bold">{{ "%.0f"|format(advice.total_distance_km) }}</p>
+                <p class="text-xs text-green-100">km total</p>
+            </div>
+            <div class="bg-white/20 rounded-lg p-3">
+                <p class="text-2xl font-bold">{{ "%.0f"|format(advice.total_duration_minutes) }}</p>
+                <p class="text-xs text-green-100">minutes</p>
+            </div>
+            <div class="bg-white/20 rounded-lg p-3">
+                <p class="text-2xl font-bold">{{ advice.segments|length }}</p>
+                <p class="text-xs text-green-100">segments</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sun Exposure Breakdown -->
+    <div class="bg-white rounded-2xl shadow-lg p-6">
+        <h4 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+            📊 Sun Exposure Breakdown
+        </h4>
+
+        {% if advice.trip_metadata and advice.trip_metadata.route_source == 'fallback' %}
+        <div class="mb-4 p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-sm text-yellow-800">
+            Showing a sample route map because live PTV/GTFS data isn't configured. To see your exact route, add PTV API keys or a GTFS feed (set GTFS_DIR).
+        </div>
+        {% endif %}
+        
+        <!-- Progress Bars -->
+        <div class="space-y-4">
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-medium text-gray-700 flex items-center">
+                        <span class="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                        LEFT Side Sun
+                    </span>
+                    <span class="text-sm text-gray-600">{{ "%.1f"|format(advice.left_percentage) }}%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                    <div class="bg-blue-500 h-3 rounded-full transition-all duration-500" 
+                         style="width: {{ advice.left_percentage }}%"></div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-medium text-gray-700 flex items-center">
+                        <span class="w-3 h-3 bg-orange-500 rounded-full mr-2"></span>
+                        RIGHT Side Sun
+                    </span>
+                    <span class="text-sm text-gray-600">{{ "%.1f"|format(advice.right_percentage) }}%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                    <div class="bg-orange-500 h-3 rounded-full transition-all duration-500" 
+                         style="width: {{ advice.right_percentage }}%"></div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-medium text-gray-700 flex items-center">
+                        <span class="w-3 h-3 bg-gray-400 rounded-full mr-2"></span>
+                        No Significant Sun
+                    </span>
+                    <span class="text-sm text-gray-600">{{ "%.1f"|format(advice.neither_percentage) }}%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                    <div class="bg-gray-400 h-3 rounded-full transition-all duration-500" 
+                         style="width: {{ advice.neither_percentage }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Segment Details -->
+    <div class="bg-white rounded-2xl shadow-lg p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h4 class="text-xl font-semibold text-gray-800 flex items-center">
+                �️ Segment Analysis
+            </h4>
+            <span class="text-sm text-gray-500">{{ advice.segments|length }} segments</span>
+        </div>
+        
+        <div class="space-y-4">
+            {% for segment in advice.segments %}
+            <div class="segment-card border-2 rounded-xl p-4 
+                        {% if segment.advice == 'LEFT' %}border-blue-200 bg-blue-50{% elif segment.advice == 'RIGHT' %}border-orange-200 bg-orange-50{% else %}border-gray-200 bg-gray-50{% endif %}">
+                
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="text-2xl">
+                            {% if segment.advice == 'LEFT' %}
+                                👈
+                            {% elif segment.advice == 'RIGHT' %}
+                                👉
+                            {% else %}
+                                🤷
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h5 class="font-semibold text-gray-800">
+                                {{ segment.start_stop }} → {{ segment.end_stop }}
+                            </h5>
+                            <p class="text-sm text-gray-600">
+                                {{ "%.1f"|format(segment.distance_km) }} km • {{ "%.0f"|format(segment.duration_minutes) }} min
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="text-right">
+                        <div class="text-lg font-bold 
+                                    {% if segment.advice == 'LEFT' %}text-blue-700{% elif segment.advice == 'RIGHT' %}text-orange-700{% else %}text-gray-600{% endif %}">
+                            {{ segment.advice }}
+                        </div>
+                        {% if segment.metadata and segment.metadata.sun_intensity %}
+                        <p class="text-xs text-gray-500">{{ segment.metadata.sun_intensity }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Technical Details (Expandable) -->
+                <details class="mt-3">
+                    <summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-700">
+                        Technical Details
+                    </summary>
+                    <div class="mt-2 text-xs text-gray-600 bg-white rounded-lg p-3 space-y-1">
+                        <div class="grid grid-cols-2 gap-2">
+                            <span>Bearing: {{ "%.0f"|format(segment.bearing_degrees) }}°</span>
+                            <span>Solar Azimuth: {{ "%.0f"|format(segment.solar_azimuth) }}°</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <span>Solar Altitude: {{ "%.1f"|format(segment.solar_altitude) }}°</span>
+                            {% if segment.metadata and segment.metadata.delta_angle is not none %}
+                            <span>Delta Angle: {{ "%.0f"|format(segment.metadata.delta_angle) }}°</span>
+                            {% endif %}
+                        </div>
+                        {% if segment.irradiance %}
+                        <div>Solar Irradiance: {{ "%.0f"|format(segment.irradiance) }} W/m²</div>
+                        {% endif %}
+                        {% if segment.is_underground %}
+                        <div class="text-blue-600 font-medium">🚇 Underground segment</div>
+                        {% endif %}
+                    </div>
+                </details>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Disruptions (if any) -->
+    {% if disruptions %}
+    <div class="bg-yellow-50 border border-yellow-200 rounded-2xl p-6">
+        <h4 class="text-lg font-semibold text-yellow-800 mb-4 flex items-center">
+            ⚠️ Service Alerts
+        </h4>
+        <div class="space-y-3">
+            {% for disruption in disruptions %}
+            <div class="bg-white border border-yellow-200 rounded-lg p-4">
+                <h5 class="font-medium text-yellow-800">{{ disruption.title }}</h5>
+                <p class="text-sm text-yellow-700 mt-1">{{ disruption.description }}</p>
+                {% if disruption.url %}
+                <a href="{{ disruption.url }}" target="_blank" 
+                   class="text-xs text-yellow-600 hover:text-yellow-800 underline mt-2 inline-block">
+                    More info →
+                </a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Map Toggle Button -->
+    <div class="text-center">
+        <button onclick="toggleMap()" 
+                class="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition duration-300 font-medium">
+            🗺️ Show Route Map
+        </button>
+        <script type="application/json" id="route-json">
+            {"coordinates": {{ advice.route_coordinates | tojson }}, "segments": {{ advice.segments | tojson }} }
+        </script>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="flex space-x-4">
+        <button onclick="window.print()" 
+                class="flex-1 bg-gray-600 text-white py-3 px-4 rounded-xl hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-300 transition duration-300 font-medium">
+            🖨️ Print Results
+        </button>
+        
+        <button onclick="shareResults()" 
+                class="flex-1 bg-green-600 text-white py-3 px-4 rounded-xl hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition duration-300 font-medium">
+            📤 Share
+        </button>
+    </div>
+</div>
+
+<script>
+function toggleMap() {
+    const mapSection = document.getElementById('map-section');
+    if (mapSection) {
+        mapSection.classList.toggle('hidden');
+        
+        // Initialize map if showing for first time
+        if (!mapSection.classList.contains('hidden') && !window.mapInitialized) {
+            initializeMap();
+        }
+    }
+}
+
+function shareResults() {
+    if (navigator.share) {
+        navigator.share({
+            title: 'SunSeat Journey Advice',
+            text: '{{ advice.recommendation }}',
+            url: window.location.href
+        });
+    } else {
+        // Fallback: copy to clipboard
+        const text = 'SunSeat Advice: {{ advice.recommendation }}';
+        navigator.clipboard.writeText(text).then(() => {
+            alert('✅ Results copied to clipboard!');
+        });
+    }
+}
+
+function initializeMap() {
+    // This would initialize the Leaflet map with route data
+    window.mapInitialized = true;
+    
+    // Sample map initialization (would be populated with real route data)
+    const map = L.map('map-container').setView([-37.8136, 144.9631], 10);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+    
+    // Add route polyline with color coding based on advice
+    // This would use the actual segment data
+}
+</script>
+{% endif %}
